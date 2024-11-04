@@ -1,44 +1,82 @@
-<!--
- * @Author: kelemengqi 1565916105@qq.com
- * @Date: 2024-10-31 08:30:52
- * @LastEditors: kelemengqi 1565916105@qq.com
- * @LastEditTime: 2024-11-02 15:50:00
- * @FilePath: /passenger/passenger-vue/passenger-app/src/views/PassengerListView.vue
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
--->
 <template>
   <h1>Passenger List</h1>
-  <ul v-if="passengers.length">
-    <li v-for="passenger in passengers" :key="passenger._id">
+  <ul v-if="currentPassengers.length">
+    <li v-for="passenger in currentPassengers" :key="passenger._id">
       <RouterLink :to="{ name: 'passenger-detail', params: { id: passenger._id } }">
         {{ passenger.name }}
       </RouterLink>
     </li>
   </ul>
   <p v-else>Loading passengers...</p> <!-- 当没有乘客时显示加载提示 -->
+
+  <div class="pagination">
+    <button @click="prevPage" :disabled="page <= 1">Prev</button>
+    <span>Page {{ page }} of {{ totalPages }}</span>
+    <button @click="nextPage" :disabled="page >= totalPages">Next</button>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, defineProps } from 'vue';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
-import nProgress from 'nprogress'; // 导入 NProgress
+import nProgress from 'nprogress';
 
 interface Passenger {
   _id: string;
   name: string;
 }
 
+const props = defineProps<{
+  page: number; // 接收当前页作为 prop
+}>();
+
 const passengers = ref<Passenger[]>([]);
+const itemsPerPage = 5;
+const router = useRouter();
+
+const totalPages = computed(() => Math.ceil(passengers.value.length / itemsPerPage));
+
+const currentPassengers = computed(() => {
+  const start = (props.page - 1) * itemsPerPage;
+  return passengers.value.slice(start, start + itemsPerPage);
+});
 
 onMounted(async () => {
-  nProgress.start(); // 启动进度条
+  nProgress.start();
   try {
     const response = await axios.get<{ data: Passenger[] }>('https://api.instantwebtools.net/v1/passenger');
-    passengers.value = response.data.data; // 设置乘客数据
+    passengers.value = response.data.data;
   } catch (error) {
     console.error('获取乘客数据时出错:', error);
   } finally {
-    nProgress.done(); // 完成进度条
+    nProgress.done();
   }
 });
+
+// 分页方法
+const nextPage = () => {
+  if (props.page < totalPages.value) {
+    router.push({ name: 'passenger-list', query: { page: props.page + 1 } });
+  }
+};
+
+const prevPage = () => {
+  if (props.page > 1) {
+    router.push({ name: 'passenger-list', query: { page: props.page - 1 } });
+  }
+};
 </script>
+
+<style scoped>
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+
+button {
+  margin: 0 5px;
+}
+</style>
